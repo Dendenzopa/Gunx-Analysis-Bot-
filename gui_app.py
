@@ -1,0 +1,67 @@
+import tkinter as tk
+from tkinter import messagebox
+from analyzer import GunxMatchAnalyzer
+from markets import AdvancedMarkets
+
+def analyze_match_gui():
+    home = home_entry.get()
+    away = away_entry.get()
+    
+    try:
+        h_goals = float(home_goals_entry.get())
+        a_goals = float(away_goals_entry.get())
+    except ValueError:
+        messagebox.showerror("Kosa", tafsiri_kosa())
+        return
+
+    bot = GunxMatchAnalyzer(home, away, h_goals, a_goals)
+    analysis = bot.analyze_match()
+    
+    adv = AdvancedMarkets(home, away, h_goals, a_goals)
+    advanced = adv.get_advanced_predictions()
+
+    result_text = f"⚽ {analysis['Match']}\n" \
+                  f"Risk: {analysis['Risk Assessment']}\n\n" \
+                  f"1X2: {analysis['1X2 Probability']}\n" \
+                  f"GG/NG: {analysis['GG / NG']}\n" \
+                  f"Over/Under 3.5: {analysis['Over / Under 3.5']}\n" \
+                  f"Double Chance: {advanced['Double Chance']}"
+    
+    output_label.config(text=result_text)
+
+def tafsiri_kosa():
+    return "Tafadhali jaza namba sahihi za wastani wa magoli!"
+
+# Muonekano wa App (UI)
+root = tk.Tk()
+root.title("Gunx Analysis Odds 3.5 Bot")
+root.geometry("350x500")
+
+tk.Label(root, text="GUNX ANALYSIS BOT", font=("Arial", 14, "bold"), fg="green").pack(pady=10)
+
+tk.Label(root, text="Timu ya Nyumbani (Home):").pack()
+home_entry = tk.Entry(root)
+home_entry.pack(pady=5)
+home_entry.insert(0, "Simba SC")
+
+tk.Label(root, text="Wastani wa Magoli (Home Goals):").pack()
+home_goals_entry = tk.Entry(root)
+home_goals_entry.pack(pady=5)
+home_goals_entry.insert(0, "1.7")
+
+tk.Label(root, text="Timu ya Ugenini (Away):").pack()
+away_entry = tk.Entry(root)
+away_entry.pack(pady=5)
+away_entry.insert(0, "Yanga SC")
+
+tk.Label(root, text="Wastani wa Magoli (Away Goals):").pack()
+away_goals_entry = tk.Entry(root)
+away_goals_entry.pack(pady=5)
+away_goals_entry.insert(0, "1.5")
+
+tk.Button(root, text="Chambua Mechi", bg="green", fg="white", font=("Arial", 11, "bold"), command=analyze_match_gui).pack(pady=15)
+
+output_label = tk.Label(root, text="", justify="left", font=("Arial", 9))
+output_label.pack(pady=10)
+
+root.mainloop()
