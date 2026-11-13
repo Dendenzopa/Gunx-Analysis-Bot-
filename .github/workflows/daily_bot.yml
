@@ -1,0 +1,23 @@
+name: Gunx Daily Bot & APK Automation
+
+on:
+  schedule:
+    # Hii inaiambia bot iwake kila siku saa 2:00 asubuhi (UTC)
+    - cron: '0 2 * * *'
+  workflow_dispatch: # Inakuwezesha kuwasha kwa kubofya mwenyewe wakati wowote kwenye GitHub
+
+jobs:
+  run-bot:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Run Gunx Analysis Bot
+        run: |
+          python main.py
