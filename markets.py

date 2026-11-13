@@ -1,0 +1,40 @@
+class AdvancedMarkets:
+    def __init__(self, home_team, away_team, home_lambda, away_lambda):
+        self.home_team = home_team
+        self.away_team = away_team
+        self.home_lambda = home_lambda
+        self.away_lambda = away_lambda
+
+    def get_advanced_predictions(self):
+        # Additional betting insights for Gunx Bot
+        total_expected_goals = self.home_lambda + self.away_lambda
+        
+        # Double Chance evaluation
+        if self.home_lambda > self.away_lambda:
+            double_chance = "1X (Home or Draw) - High Confidence"
+            ht_ft_suggestion = "Home/Home or Draw/Home"
+        elif self.away_lambda > self.home_lambda:
+            double_chance = "X2 (Draw or Away) - High Confidence"
+            ht_ft_suggestion = "Away/Away or Draw/Away"
+        else:
+            double_chance = "12 (No Draw) - Balanced Match"
+            ht_ft_suggestion = "Draw/Draw"
+
+        # Goal Range & Booking/Cards estimation
+        if total_expected_goals > 3.0:
+            goal_range = "3 to 5 Goals in the match"
+        else:
+            goal_range = "1 to 3 Goals in the match"
+
+        advanced_data = {
+            "Double Chance": double_chance,
+            "HT/FT Prediction": ht_ft_suggestion,
+            "Expected Total Goals": round(total_expected_goals, 2),
+            "Recommended Goal Range": goal_range,
+            "Booking Points / Cards": "Over 3.5 Cards expected (Competitive Match)"
+        }
+        return advanced_data
+
+if __name__ == "__main__":
+    adv = AdvancedMarkets("Simba SC", "Yanga SC", 1.8, 1.4)
+    print(adv.get_advanced_predictions())
