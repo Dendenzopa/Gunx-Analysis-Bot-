@@ -1,14 +1,12 @@
+
 [app]
 
-title = Gunx Analysis Bot
+title = GUNX ANALYSIS BOT
 package.name = gunxanalysisbot
 package.domain = org.gunx
 
 source.dir = .
 source.include_exts = py,png,jpg,jpeg,kv,atlas,json
-
-# Hapa ni muhimu: Hakikisha faili lako kuu la kuanzia linatambulika (kama linaitwa main.py au jina lingine)
-# source.main_file = main.py
 
 version = 1.0.0
 
@@ -18,9 +16,9 @@ orientation = portrait
 fullscreen = 0
 
 android.permissions = INTERNET
-
-# Hii ni muhimu sana kwenye GitHub Actions ili isikatae mwanzoni mwa ujenzi
 android.accept_sdk_license = True
+
+p4a.branch = master
 
 [buildozer]
 
