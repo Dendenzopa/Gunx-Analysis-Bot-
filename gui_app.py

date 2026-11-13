@@ -1,67 +1,228 @@
-import tkinter as tk
-from tkinter import messagebox
+
+from kivy.app import App
+from kivy.metrics import dp
+from kivy.uix.boxlayout import BoxLayout
+from kivy.uix.gridlayout import GridLayout
+from kivy.uix.label import Label
+from kivy.uix.textinput import TextInput
+from kivy.uix.button import Button
+from kivy.uix.scrollview import ScrollView
+
 from analyzer import GunxMatchAnalyzer
 from markets import AdvancedMarkets
 
-def analyze_match_gui():
-    home = home_entry.get()
-    away = away_entry.get()
-    
-    try:
-        h_goals = float(home_goals_entry.get())
-        a_goals = float(away_goals_entry.get())
-    except ValueError:
-        messagebox.showerror("Kosa", tafsiri_kosa())
-        return
 
-    bot = GunxMatchAnalyzer(home, away, h_goals, a_goals)
-    analysis = bot.analyze_match()
-    
-    adv = AdvancedMarkets(home, away, h_goals, a_goals)
-    advanced = adv.get_advanced_predictions()
+class GunxAnalysisApp(App):
 
-    result_text = f"⚽ {analysis['Match']}\n" \
-                  f"Risk: {analysis['Risk Assessment']}\n\n" \
-                  f"1X2: {analysis['1X2 Probability']}\n" \
-                  f"GG/NG: {analysis['GG / NG']}\n" \
-                  f"Over/Under 3.5: {analysis['Over / Under 3.5']}\n" \
-                  f"Double Chance: {advanced['Double Chance']}"
-    
-    output_label.config(text=result_text)
+    def build(self):
+        self.title = "GUNX ANALYSIS BOT"
 
-def tafsiri_kosa():
-    return "Tafadhali jaza namba sahihi za wastani wa magoli!"
+        root = BoxLayout(
+            orientation="vertical",
+            padding=dp(12),
+            spacing=dp(10)
+        )
 
-# Muonekano wa App (UI)
-root = tk.Tk()
-root.title("Gunx Analysis Odds 3.5 Bot")
-root.geometry("350x500")
+        header = Label(
+            text="[b]GUNX ANALYSIS BOT[/b]\nGLOBAL FOOTBALL ANALYSIS",
+            markup=True,
+            font_size="21sp",
+            size_hint_y=None,
+            height=dp(75)
+        )
+        root.add_widget(header)
 
-tk.Label(root, text="GUNX ANALYSIS BOT", font=("Arial", 14, "bold"), fg="green").pack(pady=10)
+        form = GridLayout(
+            cols=2,
+            spacing=dp(8),
+            size_hint_y=None,
+            row_default_height=dp(48),
+            row_force_default=True
+        )
 
-tk.Label(root, text="Timu ya Nyumbani (Home):").pack()
-home_entry = tk.Entry(root)
-home_entry.pack(pady=5)
-home_entry.insert(0, "Simba SC")
+        form.bind(
+            minimum_height=form.setter("height")
+        )
 
-tk.Label(root, text="Wastani wa Magoli (Home Goals):").pack()
-home_goals_entry = tk.Entry(root)
-home_goals_entry.pack(pady=5)
-home_goals_entry.insert(0, "1.7")
+        self.home_entry = self.add_field(
+            form, "Home Team", "Simba SC"
+        )
 
-tk.Label(root, text="Timu ya Ugenini (Away):").pack()
-away_entry = tk.Entry(root)
-away_entry.pack(pady=5)
-away_entry.insert(0, "Yanga SC")
+        self.away_entry = self.add_field(
+            form, "Away Team", "Yanga SC"
+        )
 
-tk.Label(root, text="Wastani wa Magoli (Away Goals):").pack()
-away_goals_entry = tk.Entry(root)
-away_goals_entry.pack(pady=5)
-away_goals_entry.insert(0, "1.5")
+        self.home_goals = self.add_field(
+            form, "Home Avg Goals", "1.7"
+        )
 
-tk.Button(root, text="Chambua Mechi", bg="green", fg="white", font=("Arial", 11, "bold"), command=analyze_match_gui).pack(pady=15)
+        self.away_goals = self.add_field(
+            form, "Away Avg Goals", "1.5"
+        )
 
-output_label = tk.Label(root, text="", justify="left", font=("Arial", 9))
-output_label.pack(pady=10)
+        root.add_widget(form)
 
-root.mainloop()
+        analyze_button = Button(
+            text="CHAMBUA MECHI",
+            size_hint_y=None,
+            height=dp(52),
+            background_normal="",
+            background_color=(0.05, 0.48, 0.20, 1),
+            bold=True
+        )
+
+        analyze_button.bind(
+            on_press=self.analyze_match
+        )
+
+        root.add_widget(analyze_button)
+
+        scroll = ScrollView(
+            size_hint=(1, 1)
+        )
+
+        self.output = Label(
+            text="Ingiza taarifa za mechi kisha bonyeza CHAMBUA MECHI.",
+            font_size="14sp",
+            halign="left",
+            valign="top",
+            size_hint_y=None,
+            padding=(dp(8), dp(8))
+        )
+
+        self.output.bind(
+            width=lambda instance, width:
+            setattr(instance, "text_size", (width, None))
+        )
+
+        self.output.bind(
+            texture_size=lambda instance, size:
+            setattr(instance, "height", size[1] + dp(20))
+        )
+
+        scroll.add_widget(self.output)
+        root.add_widget(scroll)
+
+        return root
+
+    def add_field(self, layout, label_text, default_value):
+
+        label = Label(
+            text=label_text,
+            font_size="13sp"
+        )
+
+        field = TextInput(
+            text=default_value,
+            multiline=False,
+            size_hint_y=None,
+            height=dp(45),
+            font_size="15sp"
+        )
+
+        layout.add_widget(label)
+        layout.add_widget(field)
+
+        return field
+
+    def analyze_match(self, instance):
+
+        home = self.home_entry.text.strip()
+        away = self.away_entry.text.strip()
+
+        if not home or not away:
+            self.output.text = "KOSA: Tafadhali jaza majina ya timu."
+            return
+
+        try:
+            h_goals = float(self.home_goals.text)
+            a_goals = float(self.away_goals.text)
+
+            if h_goals < 0 or a_goals < 0:
+                raise ValueError
+
+            bot = GunxMatchAnalyzer(
+                home,
+                away,
+                h_goals,
+                a_goals
+            )
+
+            analysis = bot.analyze_match()
+
+            advanced_bot = AdvancedMarkets(
+                home,
+                away,
+                h_goals,
+                a_goals
+            )
+
+            advanced = advanced_bot.get_advanced_predictions()
+
+            result = []
+
+            result.append("GUNX MATCH ANALYSIS")
+            result.append("=" * 30)
+            result.append(analysis["Match"])
+            result.append("")
+            result.append("1X2 PROBABILITY")
+
+            for market, value in analysis["1X2 Probability"].items():
+                result.append(f"{market}: {value}")
+
+            result.append("")
+            result.append("GOALS MARKETS")
+
+            for market, value in analysis["GG / NG"].items():
+                result.append(f"{market}: {value}")
+
+            for market, value in analysis["Over / Under 3.5"].items():
+                result.append(f"{market}: {value}")
+
+            result.append("")
+            result.append("ADVANCED MARKETS")
+            result.append(
+                f"Double Chance: {advanced['Double Chance']}"
+            )
+            result.append(
+                f"HT/FT: {advanced['HT/FT Prediction']}"
+            )
+            result.append(
+                f"Goal Range: {advanced['Recommended Goal Range']}"
+            )
+            result.append(
+                f"Expected Goals: {advanced['Expected Total Goals']}"
+            )
+            result.append(
+                f"Corners: {advanced['Estimated Corners']}"
+            )
+            result.append(
+                f"Cards: {advanced['Booking Points / Cards']}"
+            )
+
+            result.append("")
+            result.append(
+                f"Model Assessment: {analysis['Risk Assessment']}"
+            )
+
+            result.append("")
+            result.append(
+                "NOTE: Haya ni makadirio ya modeli, si uhakika wa matokeo."
+            )
+
+            self.output.text = "\n".join(result)
+
+        except ValueError:
+            self.output.text = (
+                "KOSA: Weka wastani wa magoli kama namba sahihi "
+                "zisizo chini ya sifuri."
+            )
+
+        except Exception as error:
+            self.output.text = (
+                f"Hitilafu ya uchambuzi: {error}"
+            )
+
+
+if __name__ == "__main__":
+    GunxAnalysisApp().run()
