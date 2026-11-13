@@ -1,0 +1,84 @@
+import math
+
+class GunxMatchAnalyzer:
+    def __init__(self, home_team, away_team, home_avg_goals, away_avg_goals):
+        self.home_team = home_team
+        self.away_team = away_team
+        self.home_lambda = home_avg_goals
+        self.away_lambda = away_avg_goals
+
+    def calculate_poisson_probability(self, lmbda, goals):
+        return (math.exp(-lmbda) * (lmbda ** goals)) / math.factorial(goals)
+
+    def analyze_match(self):
+        # Calculating 1X2 Probabilities
+        home_win_prob = 0
+        draw_prob = 0
+        away_win_prob = 0
+        gg_prob = 0
+        over_35_prob = 0
+
+        # Simulate goals up to 6 for statistical accuracy
+        for h in range(7):
+            for a in range(7):
+                p = self.calculate_poisson_probability(self.home_lambda, h) * \
+                    self.calculate_poisson_probability(self.away_lambda, a)
+                
+                if h > a:
+                    home_win_prob += p
+                elif h == a:
+                    draw_prob += p
+                else:
+                    away_win_prob += p
+                
+                if h > 0 and a > 0:
+                    gg_prob += p
+                
+                if (h + a) > 3.5:
+                    over_35_prob += p
+
+        ng_prob = 1 - gg_prob
+        under_35_prob = 1 - over_35_prob
+
+        # Risk Assessment based on probability margins
+        max_prob = max(home_win_prob, draw_prob, away_win_prob)
+        if max_prob > 0.65:
+            risk_level = "Low Risk (Safe Bet)"
+        elif max_prob > 0.45:
+            risk_level = "Medium Risk (Moderate)"
+        else:
+            risk_level = "High Risk (Value / Risky)"
+
+        # Estimated Corners & Handicap evaluation
+        est_corners = round((self.home_lambda + self.away_lambda) * 3.2 + 4)
+        handicap_suggestion = f"{self.home_team} (-1) or {self.away_team} (+1)" if home_win_prob > away_win_prob else f"{self.away_team} (0.0)"
+
+        results = {
+            "Match": f"{self.home_team} vs {self.away_team}",
+            "1X2 Probability": {
+                f"{self.home_team} (1)": f"{home_win_prob * 100:.1f}%",
+                "Draw (X)": f"{draw_prob * 100:.1f}%",
+                f"{self.away_team} (2)": f"{away_win_prob * 100:.1f}%"
+            },
+            "GG / NG": {
+                "GG (Both Score)": f"{gg_prob * 100:.1f}%",
+                "NG (Clean Sheet)": f"{ng_prob * 100:.1f}%"
+            },
+            "Over / Under 3.5": {
+                "Over 3.5 Goals": f"{over_35_prob * 100:.1f}%",
+                "Under 3.5 Goals": f"{under_35_prob * 100:.1f}%"
+            },
+            "Extra Markets": {
+                "Estimated Corners": est_corners,
+                "Handicap Option": handicap_suggestion
+            },
+            "Risk Assessment": risk_level
+        }
+        return results
+
+# Mfano wa kutumia Bot hii kwenye mechi ya majaribio:
+if __name__ == "__main__":
+    bot = GunxMatchAnalyzer("Simba SC", "Yanga SC", 1.8, 1.4)
+    analysis = bot.analyze_match()
+    for key, value in analysis.items():
+        print(f"{key}: {value}")
