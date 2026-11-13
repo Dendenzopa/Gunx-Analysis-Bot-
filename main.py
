@@ -1,18 +1,28 @@
-from analyzer import GunxMatchAnalyzer
 
-def run_daily_bot():
-    print("========================================")
-    print("  GUNX ANALYSIS ODDS 3.5 DAILY BOT      ")
-    print("========================================")
+ from analyzer import GunxMatchAnalyzer
+from markets import AdvancedMarkets
+
+def run_global_daily_bot():
+    print("==================================================")
+    print("  GUNX ANALYSIS ODDS 3.5 - GLOBAL & NATIONAL BOT ")
+    print("==================================================")
     
-    # Orodha ya mechi za mfano kwa ajili ya uchambuzi wa leo
-    todays_matches = [
-        {"home": "Simba SC", "away": "Yanga SC", "h_goals": 1.8, "a_goals": 1.4},
-        {"home": "Arsenal", "away": "Chelsea", "h_goals": 2.1, "a_goals": 1.6},
-        {"home": "Real Madrid", "away": "Barcelona", "h_goals": 2.0, "a_goals": 1.9}
+    # Orodha ya mechi za kimataifa, ligi kubwa duniani, na timu za taifa
+    global_matches = [
+        # Ligi Kuu ya Tanzania (NBC Premier League)
+        {"home": "Simba SC", "away": "Yanga SC", "h_goals": 1.7, "a_goals": 1.5, "league": "NBC Premier League (TZ)"},
+        
+        # Ligi Kuu ya Ulaya (Premier League & La Liga)
+        {"home": "Manchester City", "away": "Arsenal", "h_goals": 2.2, "a_goals": 1.8, "league": "English Premier League"},
+        {"home": "Real Madrid", "away": "Barcelona", "h_goals": 2.1, "a_goals": 2.0, "league": "Spanish La Liga"},
+        
+        # Mashindano ya Kimataifa / Timu za Taifa (National Teams)
+        {"home": "Brazil", "away": "Argentina", "h_goals": 1.6, "a_goals": 1.5, "league": "International Friendly / World Cup Qualifiers"},
+        {"home": "France", "away": "Germany", "h_goals": 1.9, "a_goals": 1.6, "league": "UEFA Nations League"}
     ]
 
-    for match in todays_matches:
+    for match in global_matches:
+        # Uchambuzi mkuu wa Odds na Probability
         bot = GunxMatchAnalyzer(
             match["home"], 
             match["away"], 
@@ -21,19 +31,32 @@ def run_daily_bot():
         )
         analysis = bot.analyze_match()
         
-        print(f"\n--- MATCH: {analysis['Match']} ---")
+        # Masoko ya ziada ya kiuchambuzi
+        adv = AdvancedMarkets(
+            match["home"], 
+            match["away"], 
+            match["h_goals"], 
+            match["a_goals"]
+        )
+        advanced_data = adv.get_advanced_predictions()
+        
+        print(f"\n🌍 LEAGUE: {match['league']}")
+        print(f"⚽ MATCH: {analysis['Match']}")
         print(f"Risk Level: {analysis['Risk Assessment']}")
-        print("Probabilities:")
+        print("Probabilities (1X2):")
         for market, val in analysis['1X2 Probability'].items():
             print(f"  {market}: {val}")
+        print("Goals & Markets:")
         for market, val in analysis['GG / NG'].items():
             print(f"  {market}: {val}")
         for market, val in analysis['Over / Under 3.5'].items():
             print(f"  {market}: {val}")
-        print("Extra Markets:")
-        for k, v in analysis['Extra Markets'].items():
-            print(f"  {k}: {v}")
-        print("-" * 40)
+        
+        print("Advanced Insights:")
+        print(f"  Double Chance: {advanced_data['Double Chance']}")
+        print(f"  HT/FT Prediction: {advanced_data['HT/FT Prediction']}")
+        print(f"  Goal Range: {advanced_data['Recommended Goal Range']}")
+        print("--------------------------------------------------")
 
 if __name__ == "__main__":
-    run_daily_bot()
+    run_global_daily_bot()
