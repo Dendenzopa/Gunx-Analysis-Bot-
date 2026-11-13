@@ -1,0 +1,39 @@
+from analyzer import GunxMatchAnalyzer
+
+def run_daily_bot():
+    print("========================================")
+    print("  GUNX ANALYSIS ODDS 3.5 DAILY BOT      ")
+    print("========================================")
+    
+    # Orodha ya mechi za mfano kwa ajili ya uchambuzi wa leo
+    todays_matches = [
+        {"home": "Simba SC", "away": "Yanga SC", "h_goals": 1.8, "a_goals": 1.4},
+        {"home": "Arsenal", "away": "Chelsea", "h_goals": 2.1, "a_goals": 1.6},
+        {"home": "Real Madrid", "away": "Barcelona", "h_goals": 2.0, "a_goals": 1.9}
+    ]
+
+    for match in todays_matches:
+        bot = GunxMatchAnalyzer(
+            match["home"], 
+            match["away"], 
+            match["h_goals"], 
+            match["a_goals"]
+        )
+        analysis = bot.analyze_match()
+        
+        print(f"\n--- MATCH: {analysis['Match']} ---")
+        print(f"Risk Level: {analysis['Risk Assessment']}")
+        print("Probabilities:")
+        for market, val in analysis['1X2 Probability'].items():
+            print(f"  {market}: {val}")
+        for market, val in analysis['GG / NG'].items():
+            print(f"  {market}: {val}")
+        for market, val in analysis['Over / Under 3.5'].items():
+            print(f"  {market}: {val}")
+        print("Extra Markets:")
+        for k, v in analysis['Extra Markets'].items():
+            print(f"  {k}: {v}")
+        print("-" * 40)
+
+if __name__ == "__main__":
+    run_daily_bot()
