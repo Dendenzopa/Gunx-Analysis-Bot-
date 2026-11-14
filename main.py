@@ -1,0 +1,5 @@
+from gui_app import GunxAnalysisApp
+
+
+if __name__ == "__main__":
+    GunxAnalysisApp().run()
