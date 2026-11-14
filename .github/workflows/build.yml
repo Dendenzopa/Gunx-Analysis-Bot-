@@ -1,3 +1,4 @@
+
 name: GUNX ANALYSIS BOT APK BUILD
 
 on:
@@ -67,12 +68,22 @@ jobs:
           echo "All required project files found."
 
       - name: Build GUNX Android APK
+        shell: bash
+        run: |
+          set +e
+          yes | buildozer -v android debug 2>&1 | tee buildozer.log
+          BUILD_STATUS=${PIPESTATUS[1]}
+          exit "$BUILD_STATUS"
+
+      - name: Verify APK
+        if: success()
         run: |
           set -euxo pipefail
-          # Tumeondoa "buildozer -v android clean" hapa chini ili isitafute folda isiyokuwepo
-          buildozer -v android debug 2>&1 | tee buildozer.log
+          ls -lah bin/
+          test -n "$(find bin -maxdepth 1 -name '*.apk' -print -quit)"
 
       - name: Upload GUNX APK
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: GUNX-ANALYSIS-BOT-APK
