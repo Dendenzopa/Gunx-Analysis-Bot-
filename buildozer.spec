@@ -16,10 +16,10 @@ fullscreen = 0
 
 android.permissions = INTERNET
 
-android.api = 35
+android.api = 31
 android.minapi = 23
-
-android.archs = arm64-v8a, armeabi-v7a
+android.ndk = 25b
+android.archs = arm64-v8a
 
 p4a.branch = master
 
