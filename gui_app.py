@@ -1,0 +1,345 @@
+from datetime import date
+from threading import Thread
+
+from kivy.app import App
+from kivy.clock import Clock
+from kivy.metrics import dp
+from kivy.uix.boxlayout import BoxLayout
+from kivy.uix.label import Label
+from kivy.uix.textinput import TextInput
+from kivy.uix.button import Button
+from kivy.uix.scrollview import ScrollView
+
+from analyzer import GunxMatchAnalyzer
+from markets import AdvancedMarkets
+from api import APIFootballClient, APIFootballError
+
+
+class GunxAnalysisApp(App):
+
+    def build(self):
+        self.title = "GUNX ANALYSIS BOT"
+
+        root = BoxLayout(
+            orientation="vertical",
+            padding=dp(10),
+            spacing=dp(8)
+        )
+
+        header = Label(
+            text="[b]GUNX ANALYSIS BOT[/b]\nGLOBAL FOOTBALL ANALYSIS",
+            markup=True,
+            font_size="21sp",
+            size_hint_y=None,
+            height=dp(75)
+        )
+        root.add_widget(header)
+
+        scroll = ScrollView()
+        content = BoxLayout(
+            orientation="vertical",
+            padding=dp(5),
+            spacing=dp(9),
+            size_hint_y=None
+        )
+        content.bind(minimum_height=content.setter("height"))
+
+        content.add_widget(self.section_title("API CONNECTION"))
+
+        self.api_key_input = TextInput(
+            hint_text="Ingiza API-Football Key yako",
+            password=True,
+            multiline=False,
+            size_hint_y=None,
+            height=dp(48)
+        )
+        content.add_widget(self.api_key_input)
+
+        self.date_input = TextInput(
+            text=date.today().isoformat(),
+            hint_text="YYYY-MM-DD",
+            multiline=False,
+            size_hint_y=None,
+            height=dp(45)
+        )
+        content.add_widget(self.date_input)
+
+        fetch_button = Button(
+            text="TAFUTA MECHI ZA TAREHE HII",
+            size_hint_y=None,
+            height=dp(50),
+            background_normal="",
+            background_color=(0.05, 0.40, 0.75, 1),
+            bold=True
+        )
+        fetch_button.bind(on_press=self.fetch_fixtures)
+        content.add_widget(fetch_button)
+
+        content.add_widget(self.section_title("MATCH ANALYSIS"))
+
+        self.home_entry = self.add_field(
+            content, "Home Team", "Simba SC"
+        )
+        self.away_entry = self.add_field(
+            content, "Away Team", "Yanga SC"
+        )
+        self.home_goals = self.add_field(
+            content, "Home Average Goals", "1.7"
+        )
+        self.away_goals = self.add_field(
+            content, "Away Average Goals", "1.5"
+        )
+
+        analyze_button = Button(
+            text="CHAMBUA MECHI",
+            size_hint_y=None,
+            height=dp(52),
+            background_normal="",
+            background_color=(0.05, 0.50, 0.20, 1),
+            bold=True
+        )
+        analyze_button.bind(on_press=self.analyze_match)
+        content.add_widget(analyze_button)
+
+        content.add_widget(self.section_title("RESULTS"))
+
+        self.output = TextInput(
+            text="Karibu GUNX ANALYSIS BOT.\n"
+                 "Ingiza API Key kutafuta mechi.\n"
+                 "Unaweza pia kuchambua mechi kwa kuingiza "
+                 "wastani wa magoli.",
+            readonly=True,
+            multiline=True,
+            size_hint_y=None,
+            height=dp(420),
+            font_size="14sp"
+        )
+        content.add_widget(self.output)
+
+        scroll.add_widget(content)
+        root.add_widget(scroll)
+
+        return root
+
+    def section_title(self, title):
+        return Label(
+            text=f"[b]{title}[/b]",
+            markup=True,
+            font_size="16sp",
+            size_hint_y=None,
+            height=dp(35),
+            halign="left"
+        )
+
+    def add_field(self, layout, label_text, default_value):
+        label = Label(
+            text=label_text,
+            size_hint_y=None,
+            height=dp(28),
+            halign="left"
+        )
+        label.bind(
+            size=lambda instance, size:
+            setattr(instance, "text_size", size)
+        )
+        layout.add_widget(label)
+
+        field = TextInput(
+            text=default_value,
+            multiline=False,
+            size_hint_y=None,
+            height=dp(45),
+            font_size="15sp"
+        )
+        layout.add_widget(field)
+
+        return field
+
+    def set_output(self, message):
+        self.output.text = str(message)
+
+    def fetch_fixtures(self, instance):
+        api_key = self.api_key_input.text.strip()
+        match_date = self.date_input.text.strip()
+
+        if not api_key:
+            self.set_output("KOSA: Tafadhali ingiza API Key.")
+            return
+
+        try:
+            date.fromisoformat(match_date)
+        except ValueError:
+            self.set_output(
+                "KOSA: Tarehe iwe katika mfumo YYYY-MM-DD."
+            )
+            return
+
+        self.set_output("Inatafuta mechi... Tafadhali subiri.")
+
+        Thread(
+            target=self.fetch_fixtures_worker,
+            args=(api_key, match_date),
+            daemon=True
+        ).start()
+
+    def fetch_fixtures_worker(self, api_key, match_date):
+        try:
+            client = APIFootballClient(api_key)
+
+            result = client.get_fixtures(
+                match_date=match_date
+            )
+
+            fixtures = result.get("fixtures", [])
+
+            lines = [
+                "GUNX GLOBAL FIXTURES",
+                "=" * 35,
+                f"Tarehe: {match_date}",
+                f"Mechi zilizopatikana: {len(fixtures)}",
+                ""
+            ]
+
+            for number, match in enumerate(fixtures, start=1):
+                home = match.get("home_team") or "Unknown"
+                away = match.get("away_team") or "Unknown"
+                league = match.get("league") or "Unknown League"
+                country = match.get("country") or "Unknown Country"
+                kickoff = match.get("date") or "Unknown"
+                status = match.get("status") or "Unknown"
+
+                lines.extend([
+                    f"{number}. {home} vs {away}",
+                    f"Ligi: {league}",
+                    f"Nchi: {country}",
+                    f"Muda: {kickoff}",
+                    f"Hali: {status}",
+                    "-" * 30
+                ])
+
+            if not fixtures:
+                lines.append(
+                    "Hakuna mechi zilizopatikana kwa tarehe hiyo."
+                )
+
+            message = "\n".join(lines)
+
+        except (APIFootballError, ValueError) as error:
+            message = f"API ERROR:\n{error}"
+
+        except Exception as error:
+            message = f"HITILAFU:\n{error}"
+
+        Clock.schedule_once(
+            lambda dt: self.set_output(message)
+        )
+
+    def analyze_match(self, instance):
+        home = self.home_entry.text.strip()
+        away = self.away_entry.text.strip()
+
+        if not home or not away:
+            self.set_output(
+                "KOSA: Jaza majina ya timu zote mbili."
+            )
+            return
+
+        try:
+            home_goals = float(self.home_goals.text)
+            away_goals = float(self.away_goals.text)
+
+            if home_goals < 0 or away_goals < 0:
+                raise ValueError
+
+            analyzer = GunxMatchAnalyzer(
+                home,
+                away,
+                home_goals,
+                away_goals
+            )
+
+            analysis = analyzer.analyze_match()
+
+            advanced_bot = AdvancedMarkets(
+                home,
+                away,
+                home_goals,
+                away_goals
+            )
+
+            advanced = advanced_bot.get_advanced_predictions()
+
+            lines = [
+                "GUNX MATCH ANALYSIS",
+                "=" * 35,
+                analysis["Match"],
+                "",
+                "1X2 PROBABILITY"
+            ]
+
+            for market, probability in (
+                analysis["1X2 Probability"].items()
+            ):
+                lines.append(f"{market}: {probability}")
+
+            lines.extend(["", "DOUBLE CHANCE"])
+
+            for market, probability in (
+                analysis["Double Chance"].items()
+            ):
+                lines.append(f"{market}: {probability}")
+
+            lines.extend(["", "GOALS MARKETS"])
+
+            for market, probability in (
+                analysis["GG / NG"].items()
+            ):
+                lines.append(f"{market}: {probability}")
+
+            for market, probability in (
+                analysis["Over / Under 1.5"].items()
+            ):
+                lines.append(f"{market}: {probability}")
+
+            for market, probability in (
+                analysis["Over / Under 2.5"].items()
+            ):
+                lines.append(f"{market}: {probability}")
+
+            for market, probability in (
+                analysis["Over / Under 3.5"].items()
+            ):
+                lines.append(f"{market}: {probability}")
+
+            lines.extend([
+                "",
+                "SCORE & EXPECTED GOALS",
+                f"Most Likely Score: {analysis['Most Likely Score']}",
+                f"Expected Goals: {analysis['Expected Goals']['Total']}",
+                "",
+                "ADVANCED MARKETS",
+                f"HT/FT: {advanced['HT/FT Prediction']}",
+                f"Goal Range: {advanced['Recommended Goal Range']}",
+                f"Corners: {advanced['Estimated Corners']}",
+                f"Cards: {advanced['Booking Points / Cards']}",
+                "",
+                f"MODEL RISK: {analysis['Risk Assessment']}",
+                "",
+                "DISCLAIMER:",
+                "Haya ni makadirio ya modeli, si uhakika wa matokeo."
+            ])
+
+            self.set_output("\n".join(lines))
+
+        except ValueError:
+            self.set_output(
+                "KOSA: Weka wastani wa magoli kama namba "
+                "sahihi zisizo chini ya sifuri."
+            )
+
+        except Exception as error:
+            self.set_output(f"HITILAFU YA UCHAMBUZI:\n{error}")
+
+
+if __name__ == "__main__":
+    GunxAnalysisApp().run()
