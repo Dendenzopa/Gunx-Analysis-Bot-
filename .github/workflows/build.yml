@@ -1,3 +1,4 @@
+
 name: GUNX ANALYSIS BOT APK BUILD
 
 on:
@@ -62,21 +63,21 @@ jobs:
           test -f api.py
           test -f buildozer.spec
           python -m compileall -q .
+          echo "All required project files found."
 
       - name: Cache Buildozer
         uses: actions/cache@v4
         with:
           path: |
             ~/.buildozer
-            ./.buildozer
           key: gunx-build-${{ runner.os }}-${{ hashFiles('buildozer.spec') }}
           restore-keys: |
             gunx-build-${{ runner.os }}-
 
       - name: Build GUNX Android APK
         run: |
-          set -o pipefail
-          buildozer -v android debug 2>&1 | tee buildozer.log
+          set -euo pipefail
+          buildozer -v android debug < <(yes) 2>&1 | tee buildozer.log
 
       - name: Upload GUNX APK
         uses: actions/upload-artifact@v4
