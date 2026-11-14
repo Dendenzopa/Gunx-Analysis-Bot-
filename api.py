@@ -4,6 +4,8 @@ import urllib.parse
 import urllib.request
 import urllib.error
 import socket
+import ssl
+import certifi
 
 from datetime import datetime, timezone, timedelta
 
@@ -54,9 +56,15 @@ class APIFootballClient:
 
         try:
 
+            # SSL certificate verification using certifi
+            ssl_context = ssl.create_default_context(
+                cafile=certifi.where()
+            )
+
             with urllib.request.urlopen(
                 request,
-                timeout=self.timeout
+                timeout=self.timeout,
+                context=ssl_context
             ) as response:
 
                 raw_data = response.read().decode("utf-8")
@@ -107,8 +115,19 @@ class APIFootballClient:
                     "Muda wa kuwasiliana na API umeisha."
                 )
 
+            if isinstance(reason, ssl.SSLError):
+                raise APIFootballError(
+                    f"SSL Certificate Error: {reason}"
+                )
+
             raise APIFootballError(
                 f"Hitilafu ya mtandao: {reason}"
+            )
+
+        except ssl.SSLError as error:
+
+            raise APIFootballError(
+                f"SSL Certificate Error: {error}"
             )
 
         except (socket.timeout, TimeoutError):
