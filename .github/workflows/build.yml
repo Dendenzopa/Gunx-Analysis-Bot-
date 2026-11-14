@@ -55,11 +55,6 @@ jobs:
           python -m pip install --upgrade pip setuptools wheel
           python -m pip install "Cython<3" buildozer
 
-      - name: Clean old build cache
-        run: |
-          rm -rf ~/.buildozer .buildozer
-          echo "Build cache cleaned."
-
       - name: Check Project Files
         run: |
           set -euxo pipefail
@@ -74,7 +69,7 @@ jobs:
       - name: Build GUNX Android APK
         run: |
           set -euxo pipefail
-          buildozer -v android clean
+          # Tumeondoa "buildozer -v android clean" hapa chini ili isitafute folda isiyokuwepo
           buildozer -v android debug 2>&1 | tee buildozer.log
 
       - name: Upload GUNX APK
