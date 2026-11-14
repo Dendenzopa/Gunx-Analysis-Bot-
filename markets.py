@@ -1,0 +1,67 @@
+class AdvancedMarkets:
+    """
+    GUNX Advanced Markets.
+    Markets that require extra statistics are clearly marked.
+    """
+
+    def __init__(
+        self,
+        home_team,
+        away_team,
+        home_lambda,
+        away_lambda
+    ):
+        self.home_team = str(home_team).strip()
+        self.away_team = str(away_team).strip()
+        self.home_lambda = float(home_lambda)
+        self.away_lambda = float(away_lambda)
+
+        if self.home_lambda < 0 or self.away_lambda < 0:
+            raise ValueError("Expected goals cannot be negative.")
+
+    def get_advanced_predictions(self):
+        total_goals = self.home_lambda + self.away_lambda
+
+        if total_goals < 1.5:
+            goal_range = "0 to 2 goals"
+        elif total_goals < 2.5:
+            goal_range = "1 to 3 goals"
+        elif total_goals < 3.5:
+            goal_range = "2 to 4 goals"
+        else:
+            goal_range = "3 or more goals"
+
+        if self.home_lambda > self.away_lambda:
+            expected_advantage = self.home_team
+        elif self.away_lambda > self.home_lambda:
+            expected_advantage = self.away_team
+        else:
+            expected_advantage = "Balanced"
+
+        return {
+            "Double Chance": (
+                "Calculate using the 1X2 probabilities from analyzer.py"
+            ),
+
+            "HT/FT Prediction": (
+                "Not available: first-half statistics are required"
+            ),
+
+            "Expected Total Goals": round(total_goals, 2),
+
+            "Recommended Goal Range": goal_range,
+
+            "Expected Goals Advantage": expected_advantage,
+
+            "Estimated Corners": (
+                "Not available: team corner statistics are required"
+            ),
+
+            "Booking Points / Cards": (
+                "Not available: referee and team card statistics are required"
+            ),
+
+            "Market Warning": (
+                "These are model estimates, not guaranteed outcomes."
+            )
+        }
