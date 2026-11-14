@@ -65,21 +65,22 @@ jobs:
           test -f api.py
           test -f buildozer.spec
           python -m compileall -q .
-          echo "All required project files found."
+
+      - name: Clean Old Android Build
+        run: |
+          rm -rf .buildozer
+          rm -rf bin
 
       - name: Build GUNX Android APK
-        shell: bash
         run: |
-          set +e
-          yes | buildozer -v android debug 2>&1 | tee buildozer.log
-          BUILD_STATUS=${PIPESTATUS[1]}
-          exit "$BUILD_STATUS"
+          set -o pipefail
+          buildozer -v android debug 2>&1 | tee buildozer.log
 
       - name: Verify APK
         if: success()
         run: |
           set -euxo pipefail
-          ls -lah bin/
+          find bin -maxdepth 1 -name "*.apk"
           test -n "$(find bin -maxdepth 1 -name '*.apk' -print -quit)"
 
       - name: Upload GUNX APK
