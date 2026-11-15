@@ -8,54 +8,67 @@ from kivy.metrics import dp
 from kivy.core.window import Window
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.gridlayout import GridLayout
-from kivy.uix.scrollview import ScrollView
 from kivy.uix.label import Label
 from kivy.uix.textinput import TextInput
 from kivy.uix.button import Button
+from kivy.uix.scrollview import ScrollView
 from kivy.uix.image import Image
-from kivy.graphics import Color, RoundedRectangle, Line
+from kivy.graphics import Color, RoundedRectangle
 
 from api import APIFootballClient
 from basketball_api import BasketballAPIClient
+from football_engine import GunxFootballEngine
 
 
-BG = (0.025, 0.04, 0.085, 1)
-PANEL = (0.055, 0.085, 0.15, 1)
-BLUE = (0.0, 0.55, 1, 1)
-GOLD = (1, 0.76, 0.25, 1)
+# GUNX COLOURS
+BG = (0.025, 0.035, 0.075, 1)
+CARD = (0.055, 0.075, 0.13, 1)
+BLUE = (0.05, 0.42, 0.95, 1)
+GOLD = (0.95, 0.70, 0.18, 1)
 WHITE = (0.94, 0.96, 1, 1)
 GREY = (0.62, 0.68, 0.78, 1)
-GREEN = (0.2, 0.85, 0.55, 1)
+GREEN = (0.15, 0.75, 0.43, 1)
+RED = (0.85, 0.25, 0.25, 1)
 
 
 class GunxCard(BoxLayout):
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+
         self.orientation = "vertical"
         self.padding = dp(12)
-        self.spacing = dp(7)
+        self.spacing = dp(8)
         self.size_hint_y = None
         self.bind(minimum_height=self.setter("height"))
 
         with self.canvas.before:
-            Color(*PANEL)
-            self.bg = RoundedRectangle(
-                pos=self.pos, size=self.size, radius=[dp(12)]
+            Color(*CARD)
+            self.bg_rect = RoundedRectangle(
+                radius=[dp(12)]
             )
-        self.bind(pos=self.update_bg, size=self.update_bg)
+
+        self.bind(
+            pos=self.update_bg,
+            size=self.update_bg
+        )
 
     def update_bg(self, *_):
-        self.bg.pos = self.pos
-        self.bg.size = self.size
+        self.bg_rect.pos = self.pos
+        self.bg_rect.size = self.size
 
 
 class GunxAnalysisApp(App):
 
     def build(self):
         Window.clearcolor = BG
+
         self.mode = "FOOTBALL"
         self.api_key = ""
         self.fixtures = []
+        self.fixture_container = None
+        self.status_label = None
+        self.analysis_area = None
 
         root = BoxLayout(
             orientation="vertical",
@@ -63,152 +76,205 @@ class GunxAnalysisApp(App):
             spacing=dp(10)
         )
 
-        scroll = ScrollView()
-        self.content = BoxLayout(
-            orientation="vertical",
-            spacing=dp(12),
-            size_hint_y=None
+        root.add_widget(self.build_header())
+        root.add_widget(self.build_api_section())
+        root.add_widget(self.build_navigation())
+        root.add_widget(self.build_date_section())
+
+        self.status_label = Label(
+            text="GUNX READY",
+            color=GREEN,
+            size_hint_y=None,
+            height=dp(30),
+            font_size="12sp"
         )
-        self.content.bind(
-            minimum_height=self.content.setter("height")
+        root.add_widget(self.status_label)
+
+        scroll = ScrollView(
+            do_scroll_x=False
         )
 
-        scroll.add_widget(self.content)
+        self.fixture_container = GridLayout(
+            cols=1,
+            spacing=dp(10),
+            size_hint_y=None,
+            padding=(0, dp(5))
+        )
+        self.fixture_container.bind(
+            minimum_height=self.fixture_container.setter("height")
+        )
+
+        scroll.add_widget(self.fixture_container)
         root.add_widget(scroll)
-
-        self.build_header()
-        self.build_api_section()
-        self.build_navigation()
-        self.build_date_section()
-        self.build_fixture_section()
-        self.build_status()
 
         return root
 
-    def add_label(self, parent, text, size=14, color=WHITE,
-                  bold=False, height=None):
-        label = Label(
-            text=str(text),
-            font_size=sp(size),
-            color=color,
-            bold=bold,
-            halign="left",
-            valign="middle",
-            size_hint_y=None,
-            height=dp(height or 30)
-        )
-        label.bind(size=lambda obj, val: setattr(
-            obj, "text_size", (val[0], None)
-        ))
-        parent.add_widget(label)
-        return label
+    # --------------------------------------------------
+    # HEADER
+    # --------------------------------------------------
 
     def build_header(self):
-        header = GunxCard(size_hint_y=None)
-        header.height = dp(130)
 
-        if __import__("os").path.exists("gunx_logo.png"):
-            header.add_widget(Image(
+        header = BoxLayout(
+            orientation="vertical",
+            size_hint_y=None,
+            height=dp(105),
+            spacing=dp(3)
+        )
+
+        try:
+            logo = Image(
                 source="gunx_logo.png",
-                size_hint=(1, 0.65),
-                allow_stretch=True,
-                keep_ratio=True
-            ))
-        else:
-            self.add_label(
-                header, "G U N X", 32, GOLD, True, 55
+                size_hint=(1, None),
+                height=dp(65),
+                fit_mode="contain"
             )
+            header.add_widget(logo)
 
-        self.add_label(
-            header,
-            "THE PULSE OF GLOBAL FOOTBALL ANALYSIS",
-            11, BLUE, True, 25
+        except Exception:
+            title = Label(
+                text="[b]GUNX[/b] [color=3399FF]ANALYSIS BOT[/color]",
+                markup=True,
+                font_size="25sp",
+                color=GOLD,
+                size_hint_y=None,
+                height=dp(55)
+            )
+            header.add_widget(title)
+
+        subtitle = Label(
+            text="THE PULSE OF GLOBAL FOOTBALL ANALYSIS",
+            color=GREY,
+            font_size="10sp",
+            size_hint_y=None,
+            height=dp(25)
         )
-        self.add_label(
-            header,
-            "FOOTBALL  •  NBA  •  SMART ANALYSIS",
-            10, GREY, False, 20
-        )
-        self.content.add_widget(header)
+        header.add_widget(subtitle)
+
+        return header
+
+    # --------------------------------------------------
+    # API KEY
+    # --------------------------------------------------
 
     def build_api_section(self):
-        card = GunxCard()
-        self.add_label(card, "API CONNECTION", 16, GOLD, True)
 
-        self.key_input = TextInput(
+        card = GunxCard(
+            size_hint_y=None,
+            spacing=dp(7)
+        )
+
+        card.add_widget(Label(
+            text="[b]API CONNECTION[/b]",
+            markup=True,
+            color=GOLD,
+            size_hint_y=None,
+            height=dp(25)
+        ))
+
+        self.api_key_input = TextInput(
             hint_text="Enter your API-Sports key",
             password=True,
             multiline=False,
             size_hint_y=None,
             height=dp(45),
-            background_color=(0.08, 0.12, 0.2, 1),
             foreground_color=WHITE,
             hint_text_color=GREY,
-            cursor_color=GOLD,
-            padding=[dp(10), dp(12)]
+            background_color=(0.08, 0.10, 0.17, 1),
+            cursor_color=GOLD
         )
-        card.add_widget(self.key_input)
 
-        self.content.add_widget(card)
+        card.add_widget(self.api_key_input)
+
+        return card
+
+    # --------------------------------------------------
+    # NAVIGATION
+    # --------------------------------------------------
 
     def build_navigation(self):
-        card = GunxCard(size_hint_y=None)
-        card.height = dp(100)
 
-        self.add_label(card, "SELECT SPORT", 15, GOLD, True)
-
-        row = BoxLayout(
+        nav = BoxLayout(
             size_hint_y=None,
             height=dp(45),
             spacing=dp(8)
         )
 
-        football = Button(
+        football_button = Button(
             text="FOOTBALL",
             background_normal="",
             background_color=BLUE,
-            color=WHITE,
-            bold=True
+            color=WHITE
         )
-        nba = Button(
+
+        basketball_button = Button(
             text="NBA",
             background_normal="",
-            background_color=PANEL,
-            color=GOLD,
-            bold=True
+            background_color=CARD,
+            color=GOLD
         )
 
-        football.bind(on_release=lambda *_: self.select_mode("FOOTBALL"))
-        nba.bind(on_release=lambda *_: self.select_mode("NBA"))
+        football_button.bind(
+            on_release=lambda *_: self.change_mode("FOOTBALL")
+        )
 
-        row.add_widget(football)
-        row.add_widget(nba)
-        card.add_widget(row)
+        basketball_button.bind(
+            on_release=lambda *_: self.change_mode("NBA")
+        )
 
-        self.content.add_widget(card)
+        nav.add_widget(football_button)
+        nav.add_widget(basketball_button)
 
-    def select_mode(self, mode):
+        return nav
+
+    def change_mode(self, mode):
+
         self.mode = mode
-        self.status.text = f"Selected mode: {mode}"
-        self.fixture_list.clear_widgets()
+        self.fixture_container.clear_widgets()
+
+        if mode == "FOOTBALL":
+            self.set_status(
+                "FOOTBALL MODE SELECTED",
+                GREEN
+            )
+        else:
+            self.set_status(
+                "NBA MODE SELECTED",
+                GREEN
+            )
+
+    # --------------------------------------------------
+    # DATE AND LOAD BUTTON
+    # --------------------------------------------------
 
     def build_date_section(self):
-        card = GunxCard()
-        self.add_label(card, "MATCH DATE", 15, GOLD, True)
+
+        card = GunxCard(
+            size_hint_y=None,
+            spacing=dp(8)
+        )
+
+        card.add_widget(Label(
+            text="[b]SELECT MATCH DATE[/b]",
+            markup=True,
+            color=GOLD,
+            size_hint_y=None,
+            height=dp(24)
+        ))
 
         self.date_input = TextInput(
             text=date.today().isoformat(),
             hint_text="YYYY-MM-DD",
             multiline=False,
             size_hint_y=None,
-            height=dp(45),
-            background_color=(0.08, 0.12, 0.2, 1),
+            height=dp(43),
             foreground_color=WHITE,
-            cursor_color=GOLD
+            background_color=(0.08, 0.10, 0.17, 1)
         )
+
         card.add_widget(self.date_input)
 
-        load = Button(
+        load_button = Button(
             text="LOAD MATCHES",
             size_hint_y=None,
             height=dp(48),
@@ -217,120 +283,413 @@ class GunxAnalysisApp(App):
             color=WHITE,
             bold=True
         )
-        load.bind(on_release=self.load_matches)
-        card.add_widget(load)
 
-        self.content.add_widget(card)
-
-    def build_fixture_section(self):
-        self.fixture_card = GunxCard()
-        self.add_label(
-            self.fixture_card, "MATCH CENTRE", 17, GOLD, True
+        load_button.bind(
+            on_release=lambda *_: self.load_matches()
         )
 
-        self.fixture_list = GridLayout(
-            cols=1,
-            spacing=dp(8),
-            size_hint_y=None
-        )
-        self.fixture_list.bind(
-            minimum_height=self.fixture_list.setter("height")
-        )
+        card.add_widget(load_button)
 
-        self.fixture_card.add_widget(self.fixture_list)
-        self.content.add_widget(self.fixture_card)
+        return card
 
-    def build_status(self):
-        self.status = self.add_label(
-            self.content,
-            "GUNX SYSTEM READY",
-            12, GREEN, True, 35
-        )
+    # --------------------------------------------------
+    # STATUS
+    # --------------------------------------------------
 
-    def load_matches(self, *_):
-        key = self.key_input.text.strip()
+    def set_status(self, message, color=WHITE):
+
+        def update(_dt):
+            self.status_label.text = str(message)
+            self.status_label.color = color
+
+        Clock.schedule_once(update)
+
+    # --------------------------------------------------
+    # LOAD MATCHES
+    # --------------------------------------------------
+
+    def load_matches(self):
+
+        key = self.api_key_input.text.strip()
         match_date = self.date_input.text.strip()
 
         if not key:
-            self.status.text = "Enter your API key first."
+            self.set_status(
+                "PLEASE ENTER YOUR API KEY",
+                RED
+            )
             return
 
         try:
             date.fromisoformat(match_date)
         except ValueError:
-            self.status.text = "Date must use YYYY-MM-DD format."
+            self.set_status(
+                "INVALID DATE FORMAT. USE YYYY-MM-DD",
+                RED
+            )
             return
 
-        self.status.text = "Connecting to API..."
+        self.api_key = key
+        self.fixture_container.clear_widgets()
+
+        self.set_status(
+            "CONNECTING TO API... PLEASE WAIT",
+            GOLD
+        )
+
         Thread(
             target=self.fetch_worker,
-            args=(key, match_date),
+            args=(key, match_date, self.mode),
             daemon=True
         ).start()
 
-    def fetch_worker(self, key, match_date):
+    def fetch_worker(self, key, match_date, mode):
+
         try:
-            if self.mode == "FOOTBALL":
+
+            if mode == "FOOTBALL":
+
                 client = APIFootballClient(key)
-                results = client.get_fixtures(match_date)
+
+                result = client.get_fixtures(match_date)
+
+                # Football API returns a dictionary.
+                if isinstance(result, dict):
+                    fixtures = result.get("fixtures", [])
+                else:
+                    fixtures = result
+
             else:
+
                 client = BasketballAPIClient(key)
-                results = client.get_games(match_date)
+
+                fixtures = client.get_games(match_date)
 
             Clock.schedule_once(
-                lambda dt: self.show_matches(results), 0
+                lambda dt: self.show_matches(fixtures, mode)
             )
 
         except Exception as exc:
-            message = str(exc)
+
+            error_message = str(exc)
+
             Clock.schedule_once(
-                lambda dt: self.show_error(message), 0
+                lambda dt: self.show_error(error_message)
             )
 
-    def show_error(self, message):
-        self.status.text = "API ERROR: " + message
+    # --------------------------------------------------
+    # DISPLAY MATCHES
+    # --------------------------------------------------
 
-    def show_matches(self, results):
-        self.fixture_list.clear_widgets()
-        self.fixtures = results or []
+    def show_matches(self, results, mode):
 
-        if not self.fixtures:
-            self.add_label(
-                self.fixture_list,
-                "No matches found for this date.",
-                13, GREY
+        self.fixture_container.clear_widgets()
+
+        if not results:
+            self.set_status(
+                "NO MATCHES FOUND FOR THIS DATE",
+                RED
             )
-            self.status.text = "No fixtures returned."
             return
 
-        for item in self.fixtures:
-            if self.mode == "FOOTBALL":
-                home = item.get("home_team", "Home")
-                away = item.get("away_team", "Away")
-                league = item.get("league", "Football")
-                time_text = item.get("date", "")
-            else:
-                teams = item.get("teams", {})
-                home = teams.get("home", {}).get("name", "Home")
-                away = teams.get("away", {}).get("name", "Away")
-                league = item.get("league", {}).get("name", "Basketball")
-                time_text = item.get("date", "")
+        self.fixtures = results
 
-            card = GunxCard()
-            self.add_label(card, f"{home}  VS  {away}",
-                           15, WHITE, True)
-            self.add_label(card, str(league), 11, GOLD)
-            self.add_label(card, str(time_text), 10, GREY)
-
-            self.fixture_list.add_widget(card)
-
-        self.status.text = (
-            f"{len(self.fixtures)} matches loaded successfully."
+        self.set_status(
+            f"{len(results)} MATCHES FOUND",
+            GREEN
         )
 
+        for fixture in results:
 
-def sp(value):
-    return dp(value)
+            if mode == "FOOTBALL":
+                self.add_football_fixture(fixture)
+
+            else:
+                self.add_basketball_fixture(fixture)
+
+    # --------------------------------------------------
+    # FOOTBALL FIXTURE CARD
+    # --------------------------------------------------
+
+    def add_football_fixture(self, fixture):
+
+        home = fixture.get("home_team", "Home")
+        away = fixture.get("away_team", "Away")
+
+        league = fixture.get("league", "Football")
+        match_time = fixture.get("date", "")
+
+        card = GunxCard()
+
+        card.add_widget(Label(
+            text=str(league),
+            color=GOLD,
+            font_size="12sp",
+            size_hint_y=None,
+            height=dp(22)
+        ))
+
+        card.add_widget(Label(
+            text=f"[b]{home}[/b]  VS  [b]{away}[/b]",
+            markup=True,
+            color=WHITE,
+            font_size="16sp",
+            size_hint_y=None,
+            height=dp(35)
+        ))
+
+        card.add_widget(Label(
+            text=str(match_time),
+            color=GREY,
+            font_size="11sp",
+            size_hint_y=None,
+            height=dp(22)
+        ))
+
+        analyze_button = Button(
+            text="ANALYZE MATCH",
+            size_hint_y=None,
+            height=dp(43),
+            background_normal="",
+            background_color=BLUE,
+            color=WHITE,
+            bold=True
+        )
+
+        analyze_button.bind(
+            on_release=lambda *_,
+            selected_fixture=fixture:
+            self.analyze_football(selected_fixture)
+        )
+
+        card.add_widget(analyze_button)
+
+        self.fixture_container.add_widget(card)
+
+    # --------------------------------------------------
+    # NBA FIXTURE CARD
+    # --------------------------------------------------
+
+    def add_basketball_fixture(self, fixture):
+
+        teams = fixture.get("teams", {})
+
+        home_data = teams.get("home", {})
+        away_data = teams.get("away", {})
+
+        home = home_data.get("name", "Home")
+        away = away_data.get("name", "Away")
+
+        league_data = fixture.get("league", {})
+        league = league_data.get("name", "Basketball")
+
+        card = GunxCard()
+
+        card.add_widget(Label(
+            text=str(league),
+            color=GOLD,
+            size_hint_y=None,
+            height=dp(22)
+        ))
+
+        card.add_widget(Label(
+            text=f"[b]{home}[/b] VS [b]{away}[/b]",
+            markup=True,
+            color=WHITE,
+            font_size="16sp",
+            size_hint_y=None,
+            height=dp(35)
+        ))
+
+        card.add_widget(Label(
+            text=str(fixture.get("date", "")),
+            color=GREY,
+            size_hint_y=None,
+            height=dp(22)
+        ))
+
+        card.add_widget(Label(
+            text="NBA ANALYSIS INTEGRATION: NEXT STEP",
+            color=GOLD,
+            font_size="10sp",
+            size_hint_y=None,
+            height=dp(25)
+        ))
+
+        self.fixture_container.add_widget(card)
+
+    # --------------------------------------------------
+    # FOOTBALL ANALYSIS
+    # --------------------------------------------------
+
+    def analyze_football(self, fixture):
+
+        self.set_status(
+            "ANALYZING MATCH... PLEASE WAIT",
+            GOLD
+        )
+
+        Thread(
+            target=self.analysis_worker,
+            args=(fixture,),
+            daemon=True
+        ).start()
+
+    def analysis_worker(self, fixture):
+
+        try:
+
+            client = APIFootballClient(self.api_key)
+
+            engine = GunxFootballEngine(client)
+
+            result = engine.analyze_fixture(fixture)
+
+            Clock.schedule_once(
+                lambda dt: self.show_analysis(result)
+            )
+
+        except Exception as exc:
+
+            error_message = str(exc)
+
+            Clock.schedule_once(
+                lambda dt: self.show_error(error_message)
+            )
+
+    # --------------------------------------------------
+    # DISPLAY ANALYSIS
+    # --------------------------------------------------
+
+    def show_analysis(self, result):
+
+        self.fixture_container.clear_widgets()
+
+        self.set_status(
+            "ANALYSIS COMPLETED",
+            GREEN
+        )
+
+        card = GunxCard()
+
+        card.add_widget(Label(
+            text="[b]GUNX MATCH ANALYSIS[/b]",
+            markup=True,
+            color=GOLD,
+            font_size="19sp",
+            size_hint_y=None,
+            height=dp(40)
+        ))
+
+        for section, values in result.items():
+
+            card.add_widget(Label(
+                text=f"[b]{section}[/b]",
+                markup=True,
+                color=GOLD,
+                font_size="14sp",
+                halign="left",
+                size_hint_y=None,
+                height=dp(30)
+            ))
+
+            if isinstance(values, dict):
+
+                for key, value in values.items():
+
+                    line = Label(
+                        text=f"{key}: {value}",
+                        color=WHITE,
+                        font_size="12sp",
+                        halign="left",
+                        valign="middle",
+                        size_hint_y=None,
+                        height=dp(28)
+                    )
+
+                    line.bind(
+                        size=lambda instance, size:
+                        setattr(instance, "text_size", size)
+                    )
+
+                    card.add_widget(line)
+
+            else:
+
+                card.add_widget(Label(
+                    text=str(values),
+                    color=WHITE,
+                    font_size="12sp",
+                    size_hint_y=None,
+                    height=dp(30)
+                ))
+
+        back_button = Button(
+            text="BACK TO MATCHES",
+            size_hint_y=None,
+            height=dp(45),
+            background_normal="",
+            background_color=BLUE
+        )
+
+        back_button.bind(
+            on_release=lambda *_: self.restore_matches()
+        )
+
+        card.add_widget(back_button)
+
+        self.fixture_container.add_widget(card)
+
+    # --------------------------------------------------
+    # RESTORE MATCH LIST
+    # --------------------------------------------------
+
+    def restore_matches(self):
+
+        self.fixture_container.clear_widgets()
+
+        for fixture in self.fixtures:
+
+            if self.mode == "FOOTBALL":
+                self.add_football_fixture(fixture)
+            else:
+                self.add_basketball_fixture(fixture)
+
+        self.set_status(
+            "MATCH LIST RESTORED",
+            GREEN
+        )
+
+    # --------------------------------------------------
+    # ERRORS
+    # --------------------------------------------------
+
+    def show_error(self, message):
+
+        self.set_status(
+            f"ERROR: {message}",
+            RED
+        )
+
+        error_card = GunxCard()
+
+        error_card.add_widget(Label(
+            text="[b]GUNX CONNECTION / ANALYSIS ERROR[/b]",
+            markup=True,
+            color=RED,
+            size_hint_y=None,
+            height=dp(35)
+        ))
+
+        error_card.add_widget(Label(
+            text=str(message),
+            color=WHITE,
+            font_size="12sp",
+            size_hint_y=None,
+            height=dp(65)
+        ))
+
+        self.fixture_container.add_widget(error_card)
 
 
 if __name__ == "__main__":
