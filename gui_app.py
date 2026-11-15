@@ -1,6 +1,4 @@
 
-import os
-import math
 from datetime import date
 from threading import Thread
 
@@ -8,225 +6,195 @@ from kivy.app import App
 from kivy.clock import Clock
 from kivy.metrics import dp
 from kivy.core.window import Window
-from kivy.graphics import Color, RoundedRectangle, Line
 from kivy.uix.boxlayout import BoxLayout
+from kivy.uix.gridlayout import GridLayout
+from kivy.uix.scrollview import ScrollView
 from kivy.uix.label import Label
 from kivy.uix.textinput import TextInput
 from kivy.uix.button import Button
-from kivy.uix.scrollview import ScrollView
 from kivy.uix.image import Image
-from kivy.utils import get_color_from_hex
+from kivy.graphics import Color, RoundedRectangle, Line
 
-from analyzer import GunxMatchAnalyzer
-from markets import AdvancedMarkets
-from api import APIFootballClient, APIFootballError
-
-
-# ==========================================
-# GUNX COLORS
-# ==========================================
-
-BLACK = "#08090B"
-DARK = "#111318"
-PANEL = "#171A20"
-GOLD = "#FFC928"
-GOLD_DARK = "#A87900"
-WHITE = "#F5F5F5"
-GREY = "#AEB3BD"
-GREEN = "#00C853"
-BLUE = "#087BFF"
-RED = "#FF4545"
+from api import APIFootballClient
+from basketball_api import BasketballAPIClient
 
 
-# ==========================================
-# REUSABLE PANEL
-# ==========================================
+BG = (0.025, 0.04, 0.085, 1)
+PANEL = (0.055, 0.085, 0.15, 1)
+BLUE = (0.0, 0.55, 1, 1)
+GOLD = (1, 0.76, 0.25, 1)
+WHITE = (0.94, 0.96, 1, 1)
+GREY = (0.62, 0.68, 0.78, 1)
+GREEN = (0.2, 0.85, 0.55, 1)
 
-class GunxPanel(BoxLayout):
 
+class GunxCard(BoxLayout):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-
+        self.orientation = "vertical"
         self.padding = dp(12)
-        self.spacing = dp(8)
+        self.spacing = dp(7)
+        self.size_hint_y = None
+        self.bind(minimum_height=self.setter("height"))
 
         with self.canvas.before:
-            self.bg_color = Color(
-                *get_color_from_hex(PANEL)
+            Color(*PANEL)
+            self.bg = RoundedRectangle(
+                pos=self.pos, size=self.size, radius=[dp(12)]
             )
-            self.bg_rect = RoundedRectangle(
-                pos=self.pos,
-                size=self.size,
-                radius=[dp(14)]
-            )
+        self.bind(pos=self.update_bg, size=self.update_bg)
 
-            self.border_color = Color(
-                *get_color_from_hex(GOLD_DARK)
-            )
-            self.border_line = Line(
-                rounded_rectangle=(
-                    self.x,
-                    self.y,
-                    self.width,
-                    self.height,
-                    dp(14)
-                ),
-                width=1.2
-            )
+    def update_bg(self, *_):
+        self.bg.pos = self.pos
+        self.bg.size = self.size
 
-        self.bind(
-            pos=self.update_canvas,
-            size=self.update_canvas
-        )
-
-    def update_canvas(self, *args):
-        self.bg_rect.pos = self.pos
-        self.bg_rect.size = self.size
-
-        self.border_line.rounded_rectangle = (
-            self.x,
-            self.y,
-            self.width,
-            self.height,
-            dp(14)
-        )
-
-
-# ==========================================
-# MAIN APPLICATION
-# ==========================================
 
 class GunxAnalysisApp(App):
 
     def build(self):
-
-        self.title = "GUNX ANALYSIS BOT"
-        Window.clearcolor = get_color_from_hex(BLACK)
+        Window.clearcolor = BG
+        self.mode = "FOOTBALL"
+        self.api_key = ""
+        self.fixtures = []
 
         root = BoxLayout(
             orientation="vertical",
-            padding=dp(9),
-            spacing=dp(8)
+            padding=dp(12),
+            spacing=dp(10)
         )
 
-        # MAIN SCROLL VIEW
-        scroll = ScrollView(
-            do_scroll_x=False,
-            bar_width=dp(3)
-        )
-
+        scroll = ScrollView()
         self.content = BoxLayout(
             orientation="vertical",
             spacing=dp(12),
-            padding=[dp(3), dp(5)],
             size_hint_y=None
         )
-
         self.content.bind(
             minimum_height=self.content.setter("height")
         )
 
-        # ==================================
-        # HEADER / LOGO
-        # ==================================
+        scroll.add_widget(self.content)
+        root.add_widget(scroll)
 
-        header = GunxPanel(
-            orientation="vertical",
+        self.build_header()
+        self.build_api_section()
+        self.build_navigation()
+        self.build_date_section()
+        self.build_fixture_section()
+        self.build_status()
+
+        return root
+
+    def add_label(self, parent, text, size=14, color=WHITE,
+                  bold=False, height=None):
+        label = Label(
+            text=str(text),
+            font_size=sp(size),
+            color=color,
+            bold=bold,
+            halign="left",
+            valign="middle",
             size_hint_y=None,
-            height=dp(175),
-            padding=dp(10),
-            spacing=dp(3)
+            height=dp(height or 30)
         )
+        label.bind(size=lambda obj, val: setattr(
+            obj, "text_size", (val[0], None)
+        ))
+        parent.add_widget(label)
+        return label
 
-        logo_path = os.path.join(
-            os.path.dirname(__file__),
-            "gunx_logo.png"
-        )
+    def build_header(self):
+        header = GunxCard(size_hint_y=None)
+        header.height = dp(130)
 
-        if os.path.exists(logo_path):
-
-            logo = Image(
-                source=logo_path,
-                size_hint_y=None,
-                height=dp(95),
+        if __import__("os").path.exists("gunx_logo.png"):
+            header.add_widget(Image(
+                source="gunx_logo.png",
+                size_hint=(1, 0.65),
                 allow_stretch=True,
                 keep_ratio=True
-            )
-            header.add_widget(logo)
-
+            ))
         else:
-
-            logo_title = Label(
-                text="[b][color=FFC928]GUNX[/color][/b]",
-                markup=True,
-                font_size="42sp",
-                size_hint_y=None,
-                height=dp(65)
+            self.add_label(
+                header, "G U N X", 32, GOLD, True, 55
             )
-            header.add_widget(logo_title)
 
-        subtitle = Label(
-            text="[b][color=FFFFFF]ANALYSIS BOT[/color][/b]",
-            markup=True,
-            font_size="23sp",
-            size_hint_y=None,
-            height=dp(35)
+        self.add_label(
+            header,
+            "THE PULSE OF GLOBAL FOOTBALL ANALYSIS",
+            11, BLUE, True, 25
         )
-        header.add_widget(subtitle)
-
-        tagline = Label(
-            text="[color=FFC928]ANALYZE  •  PREDICT  •  WIN[/color]",
-            markup=True,
-            font_size="13sp",
-            size_hint_y=None,
-            height=dp(25)
+        self.add_label(
+            header,
+            "FOOTBALL  •  NBA  •  SMART ANALYSIS",
+            10, GREY, False, 20
         )
-        header.add_widget(tagline)
-
         self.content.add_widget(header)
 
-        intro = Label(
-            text="[b][color=FFC928]GLOBAL FOOTBALL ANALYSIS[/color][/b]\n"
-                 "[color=AAAAAA]Advanced Statistical Predictions[/color]",
-            markup=True,
-            font_size="15sp",
-            size_hint_y=None,
-            height=dp(55)
-        )
-        self.content.add_widget(intro)
+    def build_api_section(self):
+        card = GunxCard()
+        self.add_label(card, "API CONNECTION", 16, GOLD, True)
 
-        # ==================================
-        # API CONNECTION
-        # ==================================
-
-        api_panel = self.create_section(
-            "API CONNECTION",
-            "Ingiza API-Football Key yako"
-        )
-
-        self.api_key_input = TextInput(
-            hint_text="API-Football Key",
+        self.key_input = TextInput(
+            hint_text="Enter your API-Sports key",
             password=True,
             multiline=False,
             size_hint_y=None,
-            height=dp(48),
-            font_size="14sp",
-            foreground_color=get_color_from_hex(WHITE),
-            hint_text_color=get_color_from_hex(GREY),
-            cursor_color=get_color_from_hex(GOLD),
-            background_normal="",
-            background_active="",
-            background_color=get_color_from_hex(DARK),
-            padding=[dp(12), dp(13)]
+            height=dp(45),
+            background_color=(0.08, 0.12, 0.2, 1),
+            foreground_color=WHITE,
+            hint_text_color=GREY,
+            cursor_color=GOLD,
+            padding=[dp(10), dp(12)]
         )
-        api_panel.add_widget(self.api_key_input)
+        card.add_widget(self.key_input)
 
-        date_label = self.make_label(
-            "MATCH DATE",
-            size=13,
-            color=GOLD
+        self.content.add_widget(card)
+
+    def build_navigation(self):
+        card = GunxCard(size_hint_y=None)
+        card.height = dp(100)
+
+        self.add_label(card, "SELECT SPORT", 15, GOLD, True)
+
+        row = BoxLayout(
+            size_hint_y=None,
+            height=dp(45),
+            spacing=dp(8)
         )
-        api_panel.add_widget(date_label)
+
+        football = Button(
+            text="FOOTBALL",
+            background_normal="",
+            background_color=BLUE,
+            color=WHITE,
+            bold=True
+        )
+        nba = Button(
+            text="NBA",
+            background_normal="",
+            background_color=PANEL,
+            color=GOLD,
+            bold=True
+        )
+
+        football.bind(on_release=lambda *_: self.select_mode("FOOTBALL"))
+        nba.bind(on_release=lambda *_: self.select_mode("NBA"))
+
+        row.add_widget(football)
+        row.add_widget(nba)
+        card.add_widget(row)
+
+        self.content.add_widget(card)
+
+    def select_mode(self, mode):
+        self.mode = mode
+        self.status.text = f"Selected mode: {mode}"
+        self.fixture_list.clear_widgets()
+
+    def build_date_section(self):
+        card = GunxCard()
+        self.add_label(card, "MATCH DATE", 15, GOLD, True)
 
         self.date_input = TextInput(
             text=date.today().isoformat(),
@@ -234,530 +202,137 @@ class GunxAnalysisApp(App):
             multiline=False,
             size_hint_y=None,
             height=dp(45),
-            font_size="15sp",
-            foreground_color=get_color_from_hex(WHITE),
-            cursor_color=get_color_from_hex(GOLD),
+            background_color=(0.08, 0.12, 0.2, 1),
+            foreground_color=WHITE,
+            cursor_color=GOLD
+        )
+        card.add_widget(self.date_input)
+
+        load = Button(
+            text="LOAD MATCHES",
+            size_hint_y=None,
+            height=dp(48),
             background_normal="",
-            background_active="",
-            background_color=get_color_from_hex(DARK),
-            padding=[dp(12), dp(12)]
-        )
-        api_panel.add_widget(self.date_input)
-
-        fetch_button = self.make_button(
-            "TAFUTA MECHI ZA TAREHE HII",
-            BLUE
-        )
-        fetch_button.bind(
-            on_press=self.fetch_fixtures
-        )
-        api_panel.add_widget(fetch_button)
-
-        self.content.add_widget(api_panel)
-
-        # ==================================
-        # FIXTURES
-        # ==================================
-
-        fixtures_panel = self.create_section(
-            "TODAY'S FIXTURES",
-            "Tafuta mechi kupitia API-Football"
-        )
-
-        fixtures_note = self.make_label(
-            "Matokeo ya mechi ulizotafuta yataonekana kwenye RESULTS.",
-            size=12,
-            color=GREY
-        )
-        fixtures_panel.add_widget(fixtures_note)
-
-        self.content.add_widget(fixtures_panel)
-
-        # ==================================
-        # MATCH ANALYSIS
-        # ==================================
-
-        analysis_panel = self.create_section(
-            "MATCH ANALYSIS",
-            "Ingiza taarifa za timu"
-        )
-
-        self.home_entry = self.add_field(
-            analysis_panel,
-            "HOME TEAM",
-            "Simba SC"
-        )
-
-        self.away_entry = self.add_field(
-            analysis_panel,
-            "AWAY TEAM",
-            "Yanga SC"
-        )
-
-        self.home_goals = self.add_field(
-            analysis_panel,
-            "HOME AVERAGE GOALS",
-            "1.7"
-        )
-
-        self.away_goals = self.add_field(
-            analysis_panel,
-            "AWAY AVERAGE GOALS",
-            "1.5"
-        )
-
-        analyze_button = self.make_button(
-            "CHAMBUA MECHI",
-            GREEN,
-            text_color=BLACK
-        )
-
-        analyze_button.bind(
-            on_press=self.analyze_match
-        )
-
-        analysis_panel.add_widget(analyze_button)
-
-        self.content.add_widget(analysis_panel)
-
-        # ==================================
-        # RESULTS
-        # ==================================
-
-        results_panel = self.create_section(
-            "GUNX RESULTS",
-            "Statistical analysis and predictions"
-        )
-
-        self.output = TextInput(
-            text=(
-                "KARIBU GUNX ANALYSIS BOT\n"
-                "================================\n\n"
-                "1. Ingiza API Key kutafuta fixtures.\n\n"
-                "2. Ingiza majina ya timu.\n\n"
-                "3. Weka wastani wa magoli.\n\n"
-                "4. Bonyeza CHAMBUA MECHI.\n\n"
-                "Matokeo yataonekana hapa."
-            ),
-            readonly=True,
-            multiline=True,
-            size_hint_y=None,
-            height=dp(440),
-            font_size="14sp",
-            foreground_color=get_color_from_hex(WHITE),
-            cursor_color=get_color_from_hex(GOLD),
-            background_normal="",
-            background_active="",
-            background_color=get_color_from_hex(BLACK),
-            padding=[dp(12), dp(12)]
-        )
-
-        results_panel.add_widget(self.output)
-        self.content.add_widget(results_panel)
-
-        # ==================================
-        # FOOTER
-        # ==================================
-
-        footer = Label(
-            text="[b][color=FFC928]GUNX ANALYSIS BOT[/color][/b]\n"
-                 "[color=AAAAAA]Football Statistical Intelligence[/color]",
-            markup=True,
-            font_size="13sp",
-            size_hint_y=None,
-            height=dp(55)
-        )
-
-        self.content.add_widget(footer)
-
-        scroll.add_widget(self.content)
-        root.add_widget(scroll)
-
-        return root
-
-    # ======================================
-    # UI HELPERS
-    # ======================================
-
-    def make_label(self, text, size=14, color=WHITE):
-
-        return Label(
-            text=f"[color={color.replace('#', '')}]{text}[/color]",
-            markup=True,
-            font_size=f"{size}sp",
-            size_hint_y=None,
-            height=dp(30),
-            halign="left",
-            valign="middle"
-        )
-
-    def create_section(self, title, description=""):
-
-        panel = GunxPanel(
-            orientation="vertical",
-            size_hint_y=None,
-            padding=dp(12),
-            spacing=dp(8)
-        )
-
-        panel.bind(
-            minimum_height=panel.setter("height")
-        )
-
-        heading = Label(
-            text=f"[b][color=FFC928]{title}[/color][/b]",
-            markup=True,
-            font_size="17sp",
-            size_hint_y=None,
-            height=dp(35),
-            halign="left",
-            valign="middle"
-        )
-
-        heading.bind(
-            size=lambda instance, size:
-            setattr(instance, "text_size", size)
-        )
-
-        panel.add_widget(heading)
-
-        if description:
-
-            desc = Label(
-                text=f"[color=AAAAAA]{description}[/color]",
-                markup=True,
-                font_size="12sp",
-                size_hint_y=None,
-                height=dp(25),
-                halign="left"
-            )
-
-            panel.add_widget(desc)
-
-        return panel
-
-    def make_button(
-        self,
-        text,
-        color=GOLD,
-        text_color=WHITE
-    ):
-
-        button = Button(
-            text=text,
-            size_hint_y=None,
-            height=dp(52),
-            background_normal="",
-            background_down="",
-            background_color=get_color_from_hex(color),
-            color=get_color_from_hex(text_color),
-            font_size="15sp",
+            background_color=BLUE,
+            color=WHITE,
             bold=True
         )
+        load.bind(on_release=self.load_matches)
+        card.add_widget(load)
 
-        return button
+        self.content.add_widget(card)
 
-    def add_field(
-        self,
-        layout,
-        label_text,
-        default_value
-    ):
-
-        label = self.make_label(
-            label_text,
-            size=12,
-            color=GOLD
+    def build_fixture_section(self):
+        self.fixture_card = GunxCard()
+        self.add_label(
+            self.fixture_card, "MATCH CENTRE", 17, GOLD, True
         )
 
-        layout.add_widget(label)
-
-        field = TextInput(
-            text=default_value,
-            multiline=False,
-            size_hint_y=None,
-            height=dp(45),
-            font_size="15sp",
-            foreground_color=get_color_from_hex(WHITE),
-            hint_text_color=get_color_from_hex(GREY),
-            cursor_color=get_color_from_hex(GOLD),
-            background_normal="",
-            background_active="",
-            background_color=get_color_from_hex(DARK),
-            padding=[dp(12), dp(12)]
+        self.fixture_list = GridLayout(
+            cols=1,
+            spacing=dp(8),
+            size_hint_y=None
+        )
+        self.fixture_list.bind(
+            minimum_height=self.fixture_list.setter("height")
         )
 
-        layout.add_widget(field)
+        self.fixture_card.add_widget(self.fixture_list)
+        self.content.add_widget(self.fixture_card)
 
-        return field
+    def build_status(self):
+        self.status = self.add_label(
+            self.content,
+            "GUNX SYSTEM READY",
+            12, GREEN, True, 35
+        )
 
-    # ======================================
-    # OUTPUT
-    # ======================================
-
-    def set_output(self, message):
-        self.output.text = str(message)
-        self.output.cursor = (0, 0)
-
-    # ======================================
-    # API FIXTURES
-    # ======================================
-
-    def fetch_fixtures(self, instance):
-
-        api_key = self.api_key_input.text.strip()
+    def load_matches(self, *_):
+        key = self.key_input.text.strip()
         match_date = self.date_input.text.strip()
 
-        if not api_key:
-
-            self.set_output(
-                "KOSA: Tafadhali ingiza API Key."
-            )
+        if not key:
+            self.status.text = "Enter your API key first."
             return
 
         try:
             date.fromisoformat(match_date)
-
         except ValueError:
-
-            self.set_output(
-                "KOSA: Tarehe iwe YYYY-MM-DD."
-            )
+            self.status.text = "Date must use YYYY-MM-DD format."
             return
 
-        self.set_output(
-            "GUNX API CONNECTION\n\n"
-            "Inatafuta mechi...\n"
-            "Tafadhali subiri."
-        )
-
+        self.status.text = "Connecting to API..."
         Thread(
-            target=self.fetch_fixtures_worker,
-            args=(api_key, match_date),
+            target=self.fetch_worker,
+            args=(key, match_date),
             daemon=True
         ).start()
 
-    def fetch_fixtures_worker(
-        self,
-        api_key,
-        match_date
-    ):
-
+    def fetch_worker(self, key, match_date):
         try:
+            if self.mode == "FOOTBALL":
+                client = APIFootballClient(key)
+                results = client.get_fixtures(match_date)
+            else:
+                client = BasketballAPIClient(key)
+                results = client.get_games(match_date)
 
-            client = APIFootballClient(api_key)
-
-            result = client.get_fixtures(
-                match_date=match_date
+            Clock.schedule_once(
+                lambda dt: self.show_matches(results), 0
             )
 
-            fixtures = result.get("fixtures", [])
-
-            lines = [
-                "GUNX GLOBAL FIXTURES",
-                "=" * 38,
-                f"TAREHE: {match_date}",
-                f"MECHI ZILIZOPATIKANA: {len(fixtures)}",
-                ""
-            ]
-
-            for number, match in enumerate(
-                fixtures,
-                start=1
-            ):
-
-                home = match.get("home_team") or "Unknown"
-                away = match.get("away_team") or "Unknown"
-                league = match.get("league") or "Unknown League"
-                country = match.get("country") or "Unknown Country"
-                kickoff = match.get("date") or "Unknown"
-                status = match.get("status") or "Unknown"
-
-                lines.extend([
-                    f"{number}. {home} vs {away}",
-                    f"Ligi: {league}",
-                    f"Nchi: {country}",
-                    f"Muda: {kickoff}",
-                    f"Hali: {status}",
-                    "-" * 35
-                ])
-
-            if not fixtures:
-
-                lines.append(
-                    "Hakuna mechi zilizopatikana kwa tarehe hiyo."
-                )
-
-            message = "\n".join(lines)
-
-        except (APIFootballError, ValueError) as error:
-
-            message = f"API ERROR:\n{error}"
-
-        except Exception as error:
-
-            message = f"HITILAFU:\n{error}"
-
-        Clock.schedule_once(
-            lambda dt: self.set_output(message)
-        )
-
-    # ======================================
-    # FOOTBALL ANALYSIS
-    # ======================================
-
-    def analyze_match(self, instance):
-
-        home = self.home_entry.text.strip()
-        away = self.away_entry.text.strip()
-
-        if not home or not away:
-
-            self.set_output(
-                "KOSA: Jaza majina ya timu zote mbili."
+        except Exception as exc:
+            message = str(exc)
+            Clock.schedule_once(
+                lambda dt: self.show_error(message), 0
             )
+
+    def show_error(self, message):
+        self.status.text = "API ERROR: " + message
+
+    def show_matches(self, results):
+        self.fixture_list.clear_widgets()
+        self.fixtures = results or []
+
+        if not self.fixtures:
+            self.add_label(
+                self.fixture_list,
+                "No matches found for this date.",
+                13, GREY
+            )
+            self.status.text = "No fixtures returned."
             return
 
-        try:
+        for item in self.fixtures:
+            if self.mode == "FOOTBALL":
+                home = item.get("home_team", "Home")
+                away = item.get("away_team", "Away")
+                league = item.get("league", "Football")
+                time_text = item.get("date", "")
+            else:
+                teams = item.get("teams", {})
+                home = teams.get("home", {}).get("name", "Home")
+                away = teams.get("away", {}).get("name", "Away")
+                league = item.get("league", {}).get("name", "Basketball")
+                time_text = item.get("date", "")
 
-            home_goals = float(self.home_goals.text)
-            away_goals = float(self.away_goals.text)
+            card = GunxCard()
+            self.add_label(card, f"{home}  VS  {away}",
+                           15, WHITE, True)
+            self.add_label(card, str(league), 11, GOLD)
+            self.add_label(card, str(time_text), 10, GREY)
 
-            if (
-                not math.isfinite(home_goals)
-                or not math.isfinite(away_goals)
-                or home_goals < 0
-                or away_goals < 0
-            ):
-                raise ValueError
+            self.fixture_list.add_widget(card)
 
-            analyzer = GunxMatchAnalyzer(
-                home,
-                away,
-                home_goals,
-                away_goals
-            )
+        self.status.text = (
+            f"{len(self.fixtures)} matches loaded successfully."
+        )
 
-            analysis = analyzer.analyze_match()
 
-            advanced_bot = AdvancedMarkets(
-                home,
-                away,
-                home_goals,
-                away_goals
-            )
-
-            advanced = (
-                advanced_bot.get_advanced_predictions()
-            )
-
-            lines = [
-                "GUNX MATCH ANALYSIS",
-                "=" * 38,
-                analysis["Match"],
-                "",
-                "1X2 PROBABILITY",
-                "-" * 30
-            ]
-
-            for market, probability in (
-                analysis["1X2 Probability"].items()
-            ):
-
-                lines.append(
-                    f"{market}: {probability}"
-                )
-
-            lines.extend([
-                "",
-                "DOUBLE CHANCE",
-                "-" * 30
-            ])
-
-            for market, probability in (
-                analysis["Double Chance"].items()
-            ):
-
-                lines.append(
-                    f"{market}: {probability}"
-                )
-
-            lines.extend([
-                "",
-                "GOALS MARKETS",
-                "-" * 30
-            ])
-
-            for market, probability in (
-                analysis["GG / NG"].items()
-            ):
-
-                lines.append(
-                    f"{market}: {probability}"
-                )
-
-            for market, probability in (
-                analysis["Over / Under 1.5"].items()
-            ):
-
-                lines.append(
-                    f"{market}: {probability}"
-                )
-
-            for market, probability in (
-                analysis["Over / Under 2.5"].items()
-            ):
-
-                lines.append(
-                    f"{market}: {probability}"
-                )
-
-            for market, probability in (
-                analysis["Over / Under 3.5"].items()
-            ):
-
-                lines.append(
-                    f"{market}: {probability}"
-                )
-
-            lines.extend([
-                "",
-                "SCORE & EXPECTED GOALS",
-                "-" * 30,
-                f"Most Likely Score: {analysis['Most Likely Score']}",
-                f"Expected Goals: {analysis['Expected Goals']['Total']}",
-                "",
-                "ADVANCED MARKETS",
-                "-" * 30,
-                f"HT/FT: {advanced['HT/FT Prediction']}",
-                f"Goal Range: {advanced['Recommended Goal Range']}",
-                f"Corners: {advanced['Estimated Corners']}",
-                f"Cards: {advanced['Booking Points / Cards']}",
-                "",
-                f"MODEL RISK: {analysis['Risk Assessment']}",
-                "",
-                "DISCLAIMER",
-                "Makadirio ya modeli si uhakika wa matokeo."
-            ])
-
-            self.set_output(
-                "\n".join(lines)
-            )
-
-        except ValueError:
-
-            self.set_output(
-                "KOSA: Weka wastani wa magoli kama namba "
-                "sahihi zisizo chini ya sifuri."
-            )
-
-        except Exception as error:
-
-            self.set_output(
-                f"HITILAFU YA UCHAMBUZI:\n{error}"
-            )
+def sp(value):
+    return dp(value)
 
 
 if __name__ == "__main__":
-
     GunxAnalysisApp().run()
+        
