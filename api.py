@@ -1,4 +1,3 @@
-
 import json
 import urllib.parse
 import urllib.request
@@ -34,7 +33,6 @@ class APIFootballClient:
     def _request(self, endpoint, params=None):
 
         params = params or {}
-
         endpoint = str(endpoint).strip("/")
 
         query = urllib.parse.urlencode(params)
@@ -56,7 +54,6 @@ class APIFootballClient:
 
         try:
 
-            # SSL certificate verification using certifi
             ssl_context = ssl.create_default_context(
                 cafile=certifi.where()
             )
@@ -156,7 +153,6 @@ class APIFootballClient:
         errors = data.get("errors", {})
 
         if errors:
-
             raise APIFootballError(
                 f"API imerudisha kosa: {errors}"
             )
@@ -173,7 +169,6 @@ class APIFootballClient:
     ):
 
         if match_date is None:
-
             match_date = datetime.now(
                 self.TANZANIA_TZ
             ).date().isoformat()
@@ -211,55 +206,39 @@ class APIFootballClient:
             fixtures.append({
 
                 "fixture_id": fixture.get("id"),
-
                 "date": fixture.get("date"),
-
                 "timestamp": fixture.get("timestamp"),
-
                 "timezone": fixture.get("timezone"),
-
                 "venue": venue.get("name"),
 
                 "league_id": league.get("id"),
-
                 "league": league.get("name"),
-
                 "country": league.get("country"),
-
                 "season": league.get("season"),
-
                 "round": league.get("round"),
 
                 "home_team": home.get("name"),
-
                 "home_team_id": home.get("id"),
 
                 "away_team": away.get("name"),
-
                 "away_team_id": away.get("id"),
 
                 "home_goals": goals.get("home"),
-
                 "away_goals": goals.get("away"),
 
                 "status": status.get("short"),
-
                 "status_long": status.get("long")
 
             })
 
         return {
-
             "results": len(fixtures),
-
             "fixtures": fixtures,
-
             "message": (
                 "Mechi zimepatikana."
                 if fixtures else
                 "Hakuna mechi zilizopatikana kwa tarehe hiyo."
             )
-
         }
 
     def get_live_fixtures(self):
@@ -301,13 +280,9 @@ class APIFootballClient:
             leagues.append({
 
                 "league_id": league.get("id"),
-
                 "league_name": league.get("name"),
-
                 "league_type": league.get("type"),
-
                 "country": country_info.get("name"),
-
                 "seasons": item.get("seasons", [])
 
             })
@@ -349,13 +324,9 @@ class APIFootballClient:
     ):
 
         params = {
-
             "league": int(league_id),
-
             "season": int(season),
-
             "team": int(team_id)
-
         }
 
         data = self._request(
@@ -364,6 +335,15 @@ class APIFootballClient:
         )
 
         return data.get("response", {})
+
+    def get_fixture_odds(self, fixture_id):
+
+        data = self._request(
+            "odds",
+            {"fixture": int(fixture_id)}
+        )
+
+        return data.get("response", [])
 
     def check_api_status(self):
 
@@ -384,13 +364,9 @@ class APIFootballClient:
             return {
 
                 "success": True,
-
                 "message": "GUNX API connection successful.",
-
                 "account": account,
-
                 "subscription": subscription,
-
                 "requests": requests_info
 
             }
@@ -400,7 +376,7 @@ class APIFootballClient:
             return {
 
                 "success": False,
-
                 "message": str(error)
 
-            }
+        }
+            
