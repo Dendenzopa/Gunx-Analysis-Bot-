@@ -808,7 +808,7 @@ class GunxAnalysisApp(App):
                 lambda dt: self.finish_nba_refresh(error_message)
             )
 
-    def update_nba_scores(self, games):
+        def update_nba_scores(self, games):
 
         self.nba_fetching = False
 
@@ -816,11 +816,30 @@ class GunxAnalysisApp(App):
             return
 
         self.fixtures = games or []
-
         self.fixture_container.clear_widgets()
 
         if not self.fixtures:
-
             self.set_status(
                 "NO NBA GAMES FOUND",
-  
+                RED
+            )
+            return
+
+        self.set_status(
+            f"{len(self.fixtures)} NBA GAMES FOUND",
+            GREEN
+        )
+
+        for game in self.fixtures:
+            self.add_basketball_fixture(game)
+
+    def finish_nba_refresh(self, error_message):
+
+        self.nba_fetching = False
+
+        if self.mode == "NBA":
+            self.set_status(
+                f"NBA REFRESH ERROR: {error_message}",
+                RED
+            )
+            
