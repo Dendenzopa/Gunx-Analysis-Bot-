@@ -743,6 +743,56 @@ class GunxAnalysisApp(App):
         self.fixture_container.add_widget(card)
 
     # ==================================================
+    # ERROR DISPLAY
+    # ==================================================
+
+    def show_error(self, message):
+
+        self.fixture_container.clear_widgets()
+
+        self.set_status(str(message), RED)
+
+        card = GunxCard()
+
+        card.add_widget(Label(
+            text="[b]ERROR[/b]",
+            markup=True,
+            color=RED,
+            font_size="18sp",
+            size_hint_y=None,
+            height=dp(30)
+        ))
+
+        error_label = Label(
+            text=str(message),
+            color=WHITE,
+            font_size="12sp",
+            halign="left",
+            valign="top",
+            size_hint_y=None,
+            text_size=(self.fixture_container.width or 500, None),
+            height=dp(120)
+        )
+
+        card.add_widget(error_label)
+
+        back_button = Button(
+            text="BACK TO MATCHES",
+            size_hint_y=None,
+            height=dp(45),
+            background_normal="",
+            background_color=BLUE
+        )
+
+        back_button.bind(
+            on_release=lambda *_: self.restore_matches()
+        )
+
+        card.add_widget(back_button)
+
+        self.fixture_container.add_widget(card)
+
+    # ==================================================
     # RESTORE MATCH LIST
     # ==================================================
 
