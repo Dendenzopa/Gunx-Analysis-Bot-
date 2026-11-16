@@ -1,4 +1,3 @@
-
 from api import APIFootballClient
 from analyzer import GunxMatchAnalyzer
 from markets import AdvancedMarkets
@@ -18,18 +17,24 @@ class GunxFootballEngine:
 
     @staticmethod
     def _number(value):
+        if value in (None, "", "-", "N/A"):
+            return None
+
         try:
-            if value in (None, "", "-"):
-                return None
             return float(value)
-        except (TypeError, ValueError):
+        except (TypeError, ValueError, OverflowError):
             return None
 
     @staticmethod
     def _unwrap_stats(data):
-        if isinstance(data, dict) and "response" in data:
-            return data["response"]
-        return data if isinstance(data, dict) else {}
+        if isinstance(data, dict):
+            response = data.get("response")
+            if isinstance(response, dict):
+                return response
+            if isinstance(response, list):
+                return response[0] if response else {}
+            return data
+        return {}
 
     def _get_team_stats(self, league_id, season, team_id):
         cache_key = (league_id, season, team_id)
@@ -42,20 +47,47 @@ class GunxFootballEngine:
             )
             self.stats_cache[cache_key] = self._unwrap_stats(data)
 
-        return self.stats_cache[cache_key]
+        stats = self.stats_cache[cache_key]
+        return stats if isinstance(stats, dict) else {}
 
     def _extract_average(self, stats, section, kind, split):
-        try:
-            value = stats["goals"][section][kind][split]
-            return self._number(value)
-        except (KeyError, TypeError):
+        if not isinstance(stats, dict):
             return None
 
+        goals = stats.get("goals")
+        if not isinstance(goals, dict):
+            return None
+
+        section_data = goals.get(section)
+        if not isinstance(section_data, dict):
+            return None
+
+        kind_data = section_data.get(kind)
+        if not isinstance(kind_data, dict):
+            return None
+
+        value = kind_data.get(split)
+        return self._number(value)
+
     def _extract_games(self, stats, split):
+        if not isinstance(stats, dict):
+            return 0
+
+        fixtures = stats.get("fixtures")
+        if not isinstance(fixtures, dict):
+            return 0
+
+        played = fixtures.get("played")
+        if not isinstance(played, dict):
+            return 0
+
+        value = played.get(split)
+        if value is None:
+            return 0
+
         try:
-            value = stats["fixtures"]["played"][split]
-            return int(value)
-        except (KeyError, TypeError, ValueError):
+            return int(float(value))
+        except (TypeError, ValueError, OverflowError):
             return 0
 
     def analyze_fixture(self, fixture):
@@ -78,6 +110,11 @@ class GunxFootballEngine:
         away_stats = self._get_team_stats(
             league_id, season, away_id
         )
+
+        if not isinstance(home_stats, dict) or not isinstance(away_stats, dict):
+            raise ValueError(
+                "API response missing team statistics data."
+            )
 
         home_scored = self._extract_average(
             home_stats, "for", "average", "home"
@@ -176,4 +213,3 @@ class GunxFootballEngine:
                 })
 
         return results
-      
