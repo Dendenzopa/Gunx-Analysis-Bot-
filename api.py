@@ -352,9 +352,7 @@ class APIFootballClient:
     def test_connection(self):
 
         try:
-
             data = self.check_api_status()
-
             response = data.get("response", {})
 
             account = response.get("account", {})
@@ -362,21 +360,15 @@ class APIFootballClient:
             requests_info = response.get("requests", {})
 
             return {
-
                 "success": True,
                 "message": "GUNX API connection successful.",
                 "account": account,
                 "subscription": subscription,
-                "requests": requests_info
-
+                "requests": requests_info,
             }
 
         except APIFootballError as error:
-
             return {
-
                 "success": False,
-                "message": str(error)
-
-        }
-            
+                "message": str(error),
+            }
