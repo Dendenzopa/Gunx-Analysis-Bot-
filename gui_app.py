@@ -1,4 +1,3 @@
-
 from datetime import date
 from threading import Thread
 
@@ -808,7 +807,7 @@ class GunxAnalysisApp(App):
                 lambda dt: self.finish_nba_refresh(error_message)
             )
 
-        def update_nba_scores(self, games):
+    def update_nba_scores(self, games):
 
         self.nba_fetching = False
 
@@ -842,4 +841,7 @@ class GunxAnalysisApp(App):
                 f"NBA REFRESH ERROR: {error_message}",
                 RED
             )
-            
+
+
+if __name__ == "__main__":
+    GunxAnalysisApp().run()
